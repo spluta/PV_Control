@@ -1,0 +1,157 @@
+class:: PV_Control
+summary:: Tracks Magnitudes and Reduces Output of Bins
+related:: Classes/FFT, Classes/IFFT, PV_Control, Classes/PV_MagMul
+categories:: UGens>FFT
+
+Description::
+
+Tracks the Magnitudes of N bins of an FFT and Reduces Output of those Bins whose magnitude exceeds a threshold for a finite period.
+
+classmethods::
+
+method::new
+
+argument::buffer0
+
+Buffer created by the FFT when analysing the incoming signal.
+
+argument::buffer1
+
+Buffer to which PV_Control writes the alterations to be made to the magnitude of each bin. These values are scaled to be sent to MidEQ UGens, which will reduce the magnitude of the bins being attenuated.
+
+thresh=0.6, mulFactor=0.8, limiter=10, attackReleaseFrames=50, sustainZeroFrames= 100, waitGoFrames=50, tripCount=2,  tripBlockFrames=500, highestBin
+
+argument::thresh
+
+Magnitude is summed over time and multiplied by mulFactor. When a bin accumulates magnitude that crosses this threshold, it will be zeroed out. Lower numbers == quicker detection of feedback.
+
+argument::mulFactor
+
+Summed amplitude over time is multiplied by this number. Lower numbers == quicker detection of feedback.
+
+argument::limiter
+
+Limits the maximum magnitude of each of the bins.
+
+argument::attackReleaseFrames
+
+The number of frames the algorithm takes to ramp the magnitude of the bin down from 1*mag to 0*mag.
+
+argument::sustainZeroFrames
+
+The number of frames the bin is held to a magnitude of 0.
+
+argument::waitGoFrames
+
+The number of frames algorithm waits before it starts to duck the incoming signal.
+
+argument::tripCount
+
+After the algorithm ducks a bin this many times, it will then duck the bin for an extended period based on tripBlockFrames. This will force the algorithm to avoid oscillating between only 2 frequencies.
+
+argument::tripBlockFrames
+
+After tripCount is reached, the bin will then be ducked for a different time period, based on this number of frames.
+
+argument::highestBin
+
+The highest bin the algorithm will look at. Generally around 200-400. Frequencies above this bin should be removed from the signal. (In PV_Control, they are removed. With PV_Control2, the user should set a LFP at SampleRate.ir/2/numBins).
+
+Examples::
+
+A rather large SynthDef. Notice that input 0 is sent to output 0. I face a microphone right at the speaker. It should also work going through your internal mic and speakers.
+
+code::
+(
+SynthDef("PV_Control_Reson", {
+
+	var in, fft, out, volume, envs, pauseEnv, buf, buf2, vols, windowStarts, stream, numBins, cutoffFreq;
+
+	numBins = 2048;
+
+	buf = LocalBuf(numBins, 1);
+
+	buf2 = LocalBuf(numBins, 1);
+
+	in  = SoundIn.ar(0);
+	in = Compander.ar(in, in,
+		thresh: 0.5,
+		slopeBelow: 1,
+		slopeAbove: 0.5,
+		clampTime: 0.01,
+		relaxTime: 0.01
+	);
+
+	//getting the FFT and doing the PV_Control2 analysis
+	fft = FFT(buf, in);
+	buf2 = PV_Copy(fft, buf2);
+	fft = PV_Control(fft, buf2, \thresh.kr(0.8), \mulFactor.kr(0.7), \attackReleaseFrames.kr(200), \sustainZeroFrames.kr(50), \waitGoFrames.kr(18), \tripCount.kr(10), \tripBlockFrames.kr(100), \topBin.kr(300));
+
+	//grabbing the PV_Control2 analysis data from buf2
+	windowStarts = fft > -1;
+	stream = Unpack1FFT(buf2, numBins, (1..300), 0);
+	vols = Demand.kr(windowStarts, 0, stream);
+
+	//300 MidEQ with volume adjusted by the vols from buf2
+	300.do{arg i;
+		in = MidEQ.ar(in, (i+1)*(SampleRate.ir/2/numBins), \rq.kr(0.2), vols[i].lincurve(0,1,\ampMin.kr(0.5),1,-4).ampdb);
+	};
+
+	cutoffFreq = (SampleRate.ir/2/numBins*\topBin.kr);
+	out = BLowPass4.ar(BLowPass4.ar(in, cutoffFreq), cutoffFreq);  //you really have to cut out the highs
+
+	out = FreeVerb.ar(out, 0.5, 0.85, 1); //some reverb added to the signal to encourage sustain
+
+	out = Mix(Resonz.ar(out, 55*(1..11), 0.5)); //the whole thing works best when the signal is passing through a resonator of some kind. comment out this line and send the signal through a resonator in the room (like a guitar or saxophone)
+
+	out = Limiter.ar(out, 0.2);  //a limiter over the entire signal
+
+	Out.ar(0, out*\vol.kr(0));
+}).load(s)
+)
+::
+
+Adjust the parameters to find the right setting. As with any feedback situation, it works differently every time.
+
+Turn up the volume slowly!
+
+code::
+(
+s.waitForBoot({
+	b = [
+		[\thresh, ControlSpec(0,1), 0.25, StaticText()],
+		[\mulFactor, ControlSpec(0,1), 0.8, StaticText()],
+		[\attackReleaseFrames, ControlSpec(10,300, 'lin', 1), 50, StaticText()],
+		[\sustainZeroFrames, ControlSpec(10,300, 'lin', 1), 100, StaticText()],
+		[\waitGoFrames, ControlSpec(0,300, 'lin', 1), 50, StaticText()],
+		[\tripCount, ControlSpec(0,20, 'lin', 1), 2, StaticText()],
+		[\tripBlockFrames, ControlSpec(0,500, 'lin', 1), 500, StaticText()],
+		[\topBin, ControlSpec(10,400, 'lin', 1), 200, StaticText()],
+		[\vol, ControlSpec(0,1), 0, StaticText()],
+		[\limiter, ControlSpec(0,1), 0.2, StaticText()]
+	];
+
+	a = Synth("PV_Control_Reson" , b.collect{|item| [item[0], item[2]]}.flatten);
+
+	c = b.collect({|item| Slider().orientation_('horizontal')
+		.action_{|sl|
+			a.set(item[0], item[1].map(sl.value));
+			item[3].string_(item[1].map(sl.value).round(0.01).asString)
+	}});
+
+	c.do{|item, i| {item.valueAction_(b[i][1].unmap(b[i][2].postln))}.defer};
+
+	w = Window();
+
+	w.layout_(
+		HLayout(
+			VLayout(*b.collect{|item| StaticText().string_(item[0])}),
+			VLayout(*c),
+			VLayout(*b.collect{|item| item[3]})
+	));
+	w.front;
+});
+)
+::
+
+

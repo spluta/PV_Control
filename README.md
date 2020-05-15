@@ -1,0 +1,1 @@
+PV_Control tracks the Magnitudes of N bins of an FFT and reduces output of those Bins whose magnitude exceeds a threshold for a finite period. This can result in an arpeggiation of feedback that unfolds over time.
