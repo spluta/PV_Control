@@ -1,3 +1,0 @@
-/Users/spluta/Library/Application Support/SuperCollider/Extensions/LiveModularInstrument/UGens/PV_Control/source/build/CMakeFiles/rebuild_cache.dir
-/Users/spluta/Library/Application Support/SuperCollider/Extensions/LiveModularInstrument/UGens/PV_Control/source/build/CMakeFiles/edit_cache.dir
-/Users/spluta/Library/Application Support/SuperCollider/Extensions/LiveModularInstrument/UGens/PV_Control/source/build/CMakeFiles/PV_Control.dir

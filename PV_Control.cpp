@@ -3,7 +3,7 @@
 
 InterfaceTable *ft;
 
-struct PV_Control2 : Unit
+struct PV_Control : Unit
 {
 	int m_numbins;
 	float *m_mags, *m_mulArray, *m_addArray;
@@ -12,20 +12,20 @@ struct PV_Control2 : Unit
 
 extern "C"
 {
-	void PV_Control2_Ctor(PV_Control2 *unit);
-	void PV_Control2_next(PV_Control2 *unit, int inNumSamples);
-	void PV_Control2_Dtor(PV_Control2 *unit);
+	void PV_Control_Ctor(PV_Control *unit);
+	void PV_Control_next(PV_Control *unit, int inNumSamples);
+	void PV_Control_Dtor(PV_Control *unit);
 }
 
 
-void PV_Control2_Ctor(PV_Control2* unit)
+void PV_Control_Ctor(PV_Control* unit)
 {
-	SETCALC(PV_Control2_next);
+	SETCALC(PV_Control_next);
 	ZOUT0(0) = ZIN0(0);
 	unit->m_mags = 0;
 }
 
-void PV_Control2_next(PV_Control2 *unit, int inNumSamples)
+void PV_Control_next(PV_Control *unit, int inNumSamples)
 {
 	PV_GET_BUF2
 
@@ -138,13 +138,13 @@ void PV_Control2_next(PV_Control2 *unit, int inNumSamples)
 	}
 
 	for (int i=0; i<numbins; ++i) {
-		q->bin[i].phase = 0;
+		q->bin[i].phase = mags[i];
 		q->bin[i].mag = mulArray[i];
 	}
 
 }
 
-void PV_Control2_Dtor(PV_Control2* unit)
+void PV_Control_Dtor(PV_Control* unit)
 {
 	RTFree(unit->mWorld, unit->m_mags);
 }
@@ -152,11 +152,11 @@ void PV_Control2_Dtor(PV_Control2* unit)
 #define DefinePVUnit(name) \
 (*ft->fDefineUnit)(#name, sizeof(PV_Unit), (UnitCtorFunc)&name##_Ctor, 0, 0);
 
-PluginLoad(PV_Control2)
+PluginLoad(PV_Control)
 {
     // InterfaceTable *inTable implicitly given as argument to the load function
     ft = inTable; // store pointer to InterfaceTable
     //init_SCComplex(inTable);
 
-    DefineDtorUnit(PV_Control2);
+    DefineDtorUnit(PV_Control);
 }

@@ -1,9 +1,0 @@
-(
-  name: "PV_Control",
-  summary: "Tracks the Magnitudes of N bins of an FFT and reduces output of those Bins whose magnitude exceeds a threshold for a finite period.",
-  version: "1.0.0",
-  schelp: "PV_Control",
-  dependencies: ["none"],
-  license: "GPL",
-  copyright: "Sam Pluta, 2020"
-)
